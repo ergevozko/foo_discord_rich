@@ -1,6 +1,16 @@
 #include <stdafx.h>
 
-#include <discord/discord_impl.h>
+#include <discord/discord_integration.h>
+
+#include <chrono>
+#include <optional>
+
+namespace
+{
+
+std::chrono::seconds kDynamicInfoRefreshDelay{ 30 };
+
+}
 
 namespace
 {
@@ -11,19 +21,20 @@ class PlaybackCallback : public play_callback_static
 {
 public:
     unsigned get_flags() override;
+
     void on_playback_starting( play_control::t_track_command cmd, bool paused ) override
     { // ignore
     }
+
     void on_playback_new_track( metadb_handle_ptr track ) override;
     void on_playback_stop( play_control::t_stop_reason reason ) override;
     void on_playback_seek( double time ) override;
     void on_playback_pause( bool state ) override;
     void on_playback_edited( metadb_handle_ptr track ) override;
-    void on_playback_dynamic_info( const file_info& info ) override
-    { // ignore
-    }
+    void on_playback_dynamic_info( const file_info& info ) override;
     void on_playback_dynamic_info_track( const file_info& info ) override;
     void on_playback_time( double time ) override;
+
     void on_volume_change( float p_new_val ) override
     { // ignore
     }
@@ -33,6 +44,7 @@ private:
 
 private:
     bool needPresenceRefresh_ = false;
+    bool hasScheduledDynamicUpdate_ = false;
 };
 
 } // namespace
@@ -47,8 +59,8 @@ unsigned PlaybackCallback::get_flags()
 
 void PlaybackCallback::on_playback_new_track( metadb_handle_ptr track )
 {
-    //on_playback_changed( track );
-    auto pm = DiscordHandler::GetInstance().GetPresenceModifier();
+    // on_playback_changed( track );
+    auto pm = DiscordAdapter::GetInstance().GetPresenceModifier();
     pm.UpdateTrack( track );
     pm.UpdateSmallImage();
 }
@@ -57,7 +69,7 @@ void PlaybackCallback::on_playback_stop( play_control::t_stop_reason reason )
 {
     if ( play_control::t_stop_reason::stop_reason_starting_another != reason )
     {
-        auto pm = DiscordHandler::GetInstance().GetPresenceModifier();
+        auto pm = DiscordAdapter::GetInstance().GetPresenceModifier();
         pm.Disable();
     }
 }
@@ -70,7 +82,7 @@ void PlaybackCallback::on_playback_seek( double time )
     }
     else
     {
-        auto pm = DiscordHandler::GetInstance().GetPresenceModifier();
+        auto pm = DiscordAdapter::GetInstance().GetPresenceModifier();
         pm.UpdateDuration( time );
     }
 }
@@ -79,7 +91,7 @@ void PlaybackCallback::on_playback_pause( bool state )
 {
     if ( state )
     {
-        auto pm = DiscordHandler::GetInstance().GetPresenceModifier();
+        auto pm = DiscordAdapter::GetInstance().GetPresenceModifier();
         pm.UpdateTrack();
         pm.UpdateSmallImage();
     }
@@ -94,6 +106,29 @@ void PlaybackCallback::on_playback_edited( metadb_handle_ptr track )
     on_playback_changed( track );
 }
 
+void PlaybackCallback::on_playback_dynamic_info( const file_info& info )
+{
+    if ( hasScheduledDynamicUpdate_ )
+    {
+        return;
+    }
+
+    auto pm = DiscordAdapter::GetInstance().GetPresenceModifier();
+    pm.UpdateTrack();
+    if ( !pm.HasChanged() )
+    {
+        return;
+    }
+
+    pm.Rollback();
+
+    hasScheduledDynamicUpdate_ = true;
+    fb2k::callLater( static_cast<double>( kDynamicInfoRefreshDelay.count() ), [this] {
+        on_playback_changed();
+        hasScheduledDynamicUpdate_ = false;
+    } );
+}
+
 void PlaybackCallback::on_playback_dynamic_info_track( const file_info& info )
 {
     on_playback_changed();
@@ -103,7 +138,7 @@ void PlaybackCallback::on_playback_time( double time )
 {
     if ( needPresenceRefresh_ )
     {
-        auto pm = DiscordHandler::GetInstance().GetPresenceModifier();
+        auto pm = DiscordAdapter::GetInstance().GetPresenceModifier();
         pm.UpdateTrack();
         pm.UpdateSmallImage();
 
@@ -113,7 +148,7 @@ void PlaybackCallback::on_playback_time( double time )
 
 void PlaybackCallback::on_playback_changed( metadb_handle_ptr track )
 {
-    auto pm = DiscordHandler::GetInstance().GetPresenceModifier();
+    auto pm = DiscordAdapter::GetInstance().GetPresenceModifier();
     pm.UpdateTrack( track );
 }
 

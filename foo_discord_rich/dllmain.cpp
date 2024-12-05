@@ -1,7 +1,10 @@
 #include "stdafx.h"
 
-#include <discord/discord_impl.h>
+#include <artwork/fetcher.h>
+#include <discord/discord_integration.h>
 #include <fb2k/config.h>
+
+#include <qwr/abort_callback.h>
 
 DECLARE_COMPONENT_VERSION(
     DRP_NAME,
@@ -18,12 +21,15 @@ class ComponentInitQuit : public initquit
 public:
     void on_init() override
     {
-        drp::DiscordHandler::GetInstance().Initialize();
+        drp::DiscordAdapter::GetInstance().Initialize();
+        drp::ArtworkFetcher::Get().Initialize();
     }
 
     void on_quit() override
     {
-        drp::DiscordHandler::GetInstance().Finalize();
+        qwr::GlobalAbortCallback::GetInstance().Abort();
+        drp::ArtworkFetcher::Get().Finalize();
+        drp::DiscordAdapter::GetInstance().Finalize();
     }
 };
 

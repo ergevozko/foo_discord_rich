@@ -4,6 +4,8 @@
 
 #include <resource.h>
 
+#include <foobar2000/SDK/coreDarkMode.h>
+
 namespace drp::ui
 {
 
@@ -24,7 +26,7 @@ public:
         MSG_WM_INITDIALOG( OnInitDialog )
         MSG_WM_PARENTNOTIFY( OnParentNotify )
         MESSAGE_HANDLER( WM_WINDOWPOSCHANGED, OnWindowPosChanged )
-        NOTIFY_HANDLER_EX( IDC_TAB1, TCN_SELCHANGE, OnSelectionChanged )
+        NOTIFY_HANDLER_EX( IDC_TAB_PREFS_CURRENT, TCN_SELCHANGE, OnSelectionChanged )
     END_MSG_MAP()
 
 public:
@@ -32,6 +34,7 @@ public:
     ~PreferenceTabManager() override;
 
     void OnDataChanged();
+    void RequestUiChange( int nId, bool enable );
 
     // preferences_page_instance
     HWND get_wnd() override;
@@ -56,6 +59,8 @@ private:
 
     size_t activeTabIdx_ = 0;
     std::vector<std::unique_ptr<ITab>> tabs_;
+
+    fb2k::CCoreDarkModeHooks darkModeHooks_;
 };
 
 } // namespace drp::ui

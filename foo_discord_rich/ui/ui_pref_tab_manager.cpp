@@ -1,10 +1,11 @@
 #include <stdafx.h>
+
 #include "ui_pref_tab_manager.h"
 
-#include <ui/ui_pref_tab_main.h>
-#include <ui/ui_pref_tab_advanced.h>
-#include <discord/discord_impl.h>
+#include <discord/discord_integration.h>
 #include <fb2k/config.h>
+#include <ui/ui_pref_tab_advanced.h>
+#include <ui/ui_pref_tab_main.h>
 
 namespace
 {
@@ -67,6 +68,14 @@ void PreferenceTabManager::OnDataChanged()
     callback_->on_state_changed();
 }
 
+void PreferenceTabManager::RequestUiChange( int nId, bool enable )
+{
+    for ( auto& tab: tabs_ )
+    {
+        tab->OnUiChangeRequest( nId, enable );
+    }
+}
+
 HWND PreferenceTabManager::get_wnd()
 {
     return m_hWnd;
@@ -74,10 +83,10 @@ HWND PreferenceTabManager::get_wnd()
 
 t_uint32 PreferenceTabManager::get_state()
 {
-    uint32_t state = preferences_state::resettable;
-    for ( auto& tab : tabs_ )
+    uint32_t state = preferences_state::resettable | preferences_state::dark_mode_supported;
+    for ( auto& tab: tabs_ )
     {
-        state |= tab->get_state();
+        state |= tab->GetState();
     }
 
     return state;
@@ -85,20 +94,20 @@ t_uint32 PreferenceTabManager::get_state()
 
 void PreferenceTabManager::apply()
 {
-    for ( auto& tab : tabs_ )
+    for ( auto& tab: tabs_ )
     {
-        tab->apply();
+        tab->Apply();
     }
 
     OnDataChanged();
-    drp::DiscordHandler::GetInstance().OnSettingsChanged();
+    drp::DiscordAdapter::GetInstance().OnSettingsChanged();
 }
 
 void PreferenceTabManager::reset()
 {
-    for ( auto& tab : tabs_ )
+    for ( auto& tab: tabs_ )
     {
-        tab->reset();
+        tab->Reset();
     }
 
     OnDataChanged();
@@ -106,14 +115,16 @@ void PreferenceTabManager::reset()
 
 BOOL PreferenceTabManager::OnInitDialog( HWND hwndFocus, LPARAM lParam )
 {
-    cTabs_ = GetDlgItem( IDC_TAB1 );
+    darkModeHooks_.AddDialogWithControls( m_hWnd );
+
+    cTabs_ = GetDlgItem( IDC_TAB_PREFS_CURRENT );
 
     for ( size_t i = 0; i < tabs_.size(); ++i )
     {
-        cTabs_.InsertItem( i, tabs_[i]->Name() );
+        cTabs_.InsertItem( static_cast<int>( i ), tabs_[i]->Name() );
     }
 
-    cTabs_.SetCurSel( activeTabIdx_ );
+    cTabs_.SetCurSel( static_cast<int>( activeTabIdx_ ) );
     CreateTab();
 
     return TRUE; // set focus to default control
@@ -129,7 +140,7 @@ void PreferenceTabManager::OnParentNotify( UINT message, UINT nChildID, LPARAM l
 
 LRESULT PreferenceTabManager::OnSelectionChanged( LPNMHDR pNmhdr )
 {
-    activeTabIdx_ = TabCtrl_GetCurSel( GetDlgItem( IDC_TAB1 ) );
+    activeTabIdx_ = TabCtrl_GetCurSel( GetDlgItem( IDC_TAB_PREFS_CURRENT ) );
     CreateTab();
 
     return 0;
@@ -173,7 +184,7 @@ void PreferenceTabManager::CreateTab()
     auto& pCurTab = tabs_[activeTabIdx_];
     pcCurTab_ = &pCurTab->Dialog();
     pCurTab->CreateTab( m_hWnd );
-    
+
     EnableThemeDialogTexture( static_cast<HWND>( *pcCurTab_ ), ETDT_ENABLETAB );
 
     pcCurTab_->SetWindowPos( nullptr, tabRc.left, tabRc.top, tabRc.right - tabRc.left, tabRc.bottom - tabRc.top, SWP_NOZORDER );

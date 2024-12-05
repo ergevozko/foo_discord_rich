@@ -39,30 +39,36 @@
 // range v3
 #include <range/v3/all.hpp>
 
+// json
+/// Enable extended diagnostics
+#define JSON_DIAGNOSTICS 1
+#include <nlohmann/json.hpp>
+
 // Some macros defined by windowsx.h should be removed
 #ifdef _INC_WINDOWSX
 #    undef SubclassWindow
 #endif
 
-#if not __cpp_char8_t
-// Dummy type
-#    include <string>
+#include <string>
+namespace qwr
+{// TODO: create a custom type
+    using u8string = std::string;
+    using u8string_view = std::string_view;
+}
 
-using char8_t = char;
-namespace std
-{
-using u8string = basic_string<char8_t, char_traits<char8_t>, allocator<char8_t>>;
-using u8string_view = basic_string_view<char8_t>;
-} // namespace std
-#endif
-
-// Unicode converters
+// Frequently used headers and utilities
+#include <qwr/qwr_exception.h>
 #include <qwr/unicode.h>
 
 // Additional PFC wrappers
 #include <qwr/pfc_helpers_cfg.h>
 #include <qwr/pfc_helpers_stream.h>
 #include <qwr/pfc_helpers_ui.h>
+
+// extend json
+// TODO: move to fb2k_utils
+#include <utils/json_std_extenders.h>
+#include <utils/logging.h>
 
 #include <component_defines.h>
 #include <component_guids.h>

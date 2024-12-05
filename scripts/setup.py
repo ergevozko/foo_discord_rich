@@ -10,7 +10,9 @@ from typing import Union
 
 import call_wrapper
 import download_submodules
+import patch_submodules
 import configure_discord_rpc
+import configure_cpr
 
 PathLike = Union[str, Path]
 
@@ -45,12 +47,14 @@ def setup( skip_submodules_download,
     if (not skip_submodules_download):
         call_decorator('Downloading submodules')(download_submodules.download)()
         call_decorator("Configuring Discord RPC")(configure_discord_rpc.configure)()
+        call_decorator("Configuring CPR")(configure_cpr.configure)()
         if (not skip_submodules_patches):
             call_decorator('Patching fb2k submodules')(
                 load_module(scripts_path/'patch_fb2k_submodules.py').patch
             )(
                 root_dir=root_dir
             )
+            call_decorator("Patching submodules")(patch_submodules.patch)()
 
     call_decorator('Version header generation')(
         load_module(scripts_path/'generate_version_header.py').generate_header_custom

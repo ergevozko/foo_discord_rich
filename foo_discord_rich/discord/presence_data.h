@@ -14,16 +14,19 @@ struct PresenceData
     bool operator==( const PresenceData& other );
     bool operator!=( const PresenceData& other );
 
+    void UpdateTextFieldPointers();
+
 private:
     void CopyData( const PresenceData& other );
 
 public:
     DiscordRichPresence presence;
     metadb_handle_ptr metadb;
-    std::u8string state;
-    std::u8string details;
-    std::u8string largeImageKey;
-    std::u8string smallImageKey;
+    qwr::u8string topText;
+    qwr::u8string middleText;
+    qwr::u8string bottomText;
+    qwr::u8string largeImageKey;
+    qwr::u8string smallImageKey;
     double trackLength = 0;
 };
 
@@ -32,12 +35,12 @@ public:
 namespace drp
 {
 
-class DiscordHandler;
+class DiscordAdapter;
 
 /// @details Destructor updates presence data in parent and sends it to Discord
 class PresenceModifier
 {
-    friend class drp::DiscordHandler;
+    friend class drp::DiscordAdapter;
 
 public:
     ~PresenceModifier();
@@ -45,52 +48,24 @@ public:
     void UpdateImage();
     void UpdateSmallImage();
     void UpdateTrack( metadb_handle_ptr metadb = metadb_handle_ptr() );
-    void UpdateDuration( double time );
+    void UpdateDuration( double currentTime );
+    void UpdateDuration( double currentTime, double totalLength );
     void DisableDuration();
+
+    bool HasChanged() const;
+    void Rollback();
 
     /// @brief Disables Discord Rich Presence
     /// @details The updated data will still be transferred to parent
     void Disable();
 
 private:
-    PresenceModifier( DiscordHandler& parent,
-                      const drp::internal::PresenceData& presenceData );
+    PresenceModifier( DiscordAdapter& parent, const drp::internal::PresenceData& presenceData );
 
 private:
-    DiscordHandler& parent_;
+    DiscordAdapter& parent_;
 
     bool isDisabled_ = false;
-    drp::internal::PresenceData presenceData_;
-};
-
-class DiscordHandler
-{
-    friend class drp::PresenceModifier;
-
-public:
-    static DiscordHandler& GetInstance();
-
-    void Initialize();
-    void Finalize();
-    void OnSettingsChanged();
-
-    drp::PresenceModifier GetPresenceModifier();
-
-private:
-    bool HasPresence() const;
-    void SendPresence();
-    void ClearPresence();
-
-private:
-    DiscordHandler() = default;
-
-    static void OnReady( const DiscordUser* request );
-    static void OnDisconnected( int errorCode, const char* message );
-    static void OnErrored( int errorCode, const char* message );
-
-private:
-    bool hasPresence_ = true;
-    std::u8string appToken_;
     drp::internal::PresenceData presenceData_;
 };
 
